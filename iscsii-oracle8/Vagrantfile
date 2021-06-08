@@ -1,0 +1,34 @@
+$script = <<-SCRIPT
+dnf -y update
+dnf -y install targetcli
+systemctl start target
+systemctl enable target
+firewall-cmd --permanent --add-port=3260/tcp
+firewall-cmd --reload
+mkdir /var/targetdisk01
+targetcli /backstores/fileio create targetdisk1 /var/targetdisk01/targetdisk1.img 25G
+targetcli /iscsi create iqn.2021-06.stefanoteodorani.it:Target1
+targetcli /iscsi/iqn.2021-06.stefanoteodorani.it:target1/tpg1/luns create /backstores/fileio/targetdisk1
+targetcli /iscsi/iqn.2021-06.stefanoteodorani.it:target1/tpg1/acls create iqn.2021-06.stefanoteodorani.it:initiator1
+targetcli saveconfig
+
+SCRIPT
+
+
+
+Vagrant.configure("2") do |config|
+
+  # Linux iscsii device
+  config.vm.define "iscsii-oracle8" do |node|
+    node.vm.box = "generic/oracle8"
+    node.vm.hostname = "iscsii-disk"
+    node.vm.network :private_network, ip: "192.168.1.115"
+    node.ssh.insert_key = false
+    config.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--memory", 512]
+      v.customize ["modifyvm", :id, "--cpus", 1]
+    end
+#    config.vm.synced_folder ".", "/vagrant"
+     config.vm.provision "shell", inline: $script
+  end
+end
